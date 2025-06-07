@@ -199,7 +199,7 @@
                 <li>Вставьте ключ в поле выше</li>
                 <li>Нажмите кнопку и говорите чётко в микрофон</li>
                 <li>Ответ появится в чате и будет озвучен</li>
-                <li><b>Важно:</b> Откройте страницу через HTTPS (локальный сервер)</li>
+                <li><b>Важно для Android:</b> При первом использовании нажмите "Разрешить" при запросе доступа к микрофону</li>
             </ul>
         </div>
         
@@ -212,7 +212,6 @@
         // =====================
         // КОНФИГУРАЦИЯ
         // =====================
-        // Сохраните здесь ваш API-ключ DeepSeek для постоянного использования
         const DEFAULT_DEEPSEEK_API_KEY = "";
 
         // =====================
@@ -237,28 +236,17 @@
         // ИНИЦИАЛИЗАЦИЯ
         // =====================
         window.onload = function() {
-            // Установка API ключа по умолчанию
             deepseekApiKeyInput.value = DEFAULT_DEEPSEEK_API_KEY;
-            
-            // Проверка поддержки браузером
             checkBrowserSupport();
-            
-            // Загрузка голосов для синтеза речи
             loadVoices();
-            
-            // Обновление списка голосов при их загрузке
             speechSynthesis.onvoiceschanged = loadVoices;
-            
-            // Загрузка сохраненных настроек
             loadSettings();
         };
 
-        // Проверка поддержки необходимых функций
         function checkBrowserSupport() {
             let supportMessage = "Поддерживается: ";
             let allSupported = true;
             
-            // Проверка Web Speech Recognition
             if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
                 supportMessage += "Распознавание речи, ";
             } else {
@@ -266,7 +254,6 @@
                 allSupported = false;
             }
             
-            // Проверка Web Speech Synthesis
             if ('speechSynthesis' in window) {
                 supportMessage += "Синтез речи";
             } else {
@@ -282,17 +269,14 @@
             }
         }
 
-        // Загрузка доступных голосов
         function loadVoices() {
             voices = speechSynthesis.getVoices();
             voiceSelect.innerHTML = '<option value="">-- Выберите голос --</option>';
             
-            // Фильтрация русских голосов
             const russianVoices = voices.filter(voice => 
                 voice.lang.startsWith('ru') || voice.lang.startsWith('RU')
             );
             
-            // Сортировка по качеству/предпочтению
             const preferredVoices = [
                 'Google русский',
                 'Microsoft Irina - Russian',
@@ -306,7 +290,6 @@
                 return (bIndex === -1 ? 999 : bIndex) - (aIndex === -1 ? 999 : aIndex);
             });
             
-            // Добавление голосов в список
             russianVoices.forEach(voice => {
                 const option = document.createElement('option');
                 option.value = voice.name;
@@ -314,7 +297,6 @@
                 voiceSelect.appendChild(option);
             });
             
-            // Автовыбор первого русского голоса
             if (russianVoices.length > 0 && !selectedVoice) {
                 voiceSelect.value = russianVoices[0].name;
                 selectedVoice = russianVoices[0];
@@ -322,78 +304,41 @@
         }
 
         // =====================
-        // УПРАВЛЕНИЕ ЗАПИСЬЮ
+        // УПРАВЛЕНИЕ ЗАПИСЬЮ (ИСПРАВЛЕНО ДЛЯ ANDROID)
         // =====================
-        startBtn.addEventListener('click', async () => {
+        startBtn.addEventListener('click', () => {
             if (isRecording) {
                 stopRecording();
             } else {
-                // Проверка разрешений перед стартом
-                try {
-                    // Проверка доступа к микрофону
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    // Закрываем поток сразу после проверки
-                    stream.getTracks().forEach(track => track.stop());
-                    
-                    // Если доступ есть, запускаем запись
-                    startRecording();
-                } catch (error) {
-                    let errorMessage = "Ошибка доступа к микрофону: ";
-                    
-                    if (error.name === 'NotAllowedError') {
-                        errorMessage += "Доступ запрещен. Разрешите доступ в настройках браузера.";
-                    } else {
-                        errorMessage += error.message;
-                    }
-                    
-                    statusEl.textContent = errorMessage;
-                    addMessageToChat("⚠️ Пожалуйста, разрешите доступ к микрофону", "ai");
-                    
-                    // Создаем кнопку для повторной попытки
-                    if (!document.getElementById('retryBtn')) {
-                        const retryBtn = document.createElement('button');
-                        retryBtn.id = 'retryBtn';
-                        retryBtn.className = 'retry-btn';
-                        retryBtn.textContent = "Попробовать снова";
-                        retryBtn.onclick = () => location.reload();
-                        statusEl.parentNode.insertBefore(retryBtn, statusEl.nextSibling);
-                    }
-                }
+                startRecording();
             }
         });
 
         function startRecording() {
-            // Проверка API ключа
             const apiKey = deepseekApiKeyInput.value.trim();
             if (!apiKey) {
                 statusEl.textContent = "Ошибка: Введите API ключ DeepSeek";
                 return;
             }
             
-            // Инициализация распознавания речи
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             
-            // Проверка поддержки
             if (!SpeechRecognition) {
                 statusEl.textContent = "Браузер не поддерживает распознавание речи";
                 return;
             }
             
             recognition = new SpeechRecognition();
-            
-            // Настройки распознавания
             recognition.lang = 'ru-RU';
             recognition.continuous = false;
             recognition.interimResults = false;
             
-            // Обработчики событий
             recognition.onstart = () => {
                 isRecording = true;
                 startBtn.textContent = "⏹️ Слушаю...";
                 startBtn.classList.add('listening');
                 statusEl.textContent = "Говорите сейчас...";
                 
-                // Удаление кнопки повторной попытки если есть
                 const retryBtn = document.getElementById('retryBtn');
                 if (retryBtn) retryBtn.remove();
             };
@@ -403,10 +348,8 @@
                 statusEl.textContent = `Распознано: "${transcript}"`;
                 addMessageToChat(transcript, "user");
                 
-                // Отправка запроса в DeepSeek
                 const response = await sendToDeepSeek(transcript);
                 
-                // Добавление ответа в чат и озвучка
                 if (response) {
                     addMessageToChat(response, "ai");
                     speakText(response);
@@ -416,19 +359,23 @@
             recognition.onerror = (event) => {
                 let errorMessage = `Ошибка распознавания: ${event.error}`;
                 
-                // Более понятные сообщения об ошибках
+                // Специальная обработка ошибок для Android
                 if (event.error === 'not-allowed') {
-                    errorMessage = "Доступ к микрофону запрещен. Разрешите доступ в настройках браузера.";
+                    errorMessage = "Доступ к микрофону заблокирован. Пожалуйста:";
+                    errorMessage += "\n1. Проверьте разрешения браузера";
+                    errorMessage += "\n2. Перезагрузите страницу";
+                    errorMessage += "\n3. Нажмите 'Разрешить' при запросе доступа";
                 } else if (event.error === 'no-speech') {
                     errorMessage = "Речь не обнаружена. Попробуйте снова.";
                 } else if (event.error === 'audio-capture') {
                     errorMessage = "Микрофон не найден. Убедитесь, что микрофон подключен.";
+                } else if (event.error === 'network') {
+                    errorMessage = "Проблемы с сетью. Проверьте интернет-соединение.";
                 }
                 
                 statusEl.textContent = errorMessage;
                 stopRecording();
                 
-                // Добавление кнопки повторной попытки
                 if (!document.getElementById('retryBtn')) {
                     const retryBtn = document.createElement('button');
                     retryBtn.id = 'retryBtn';
@@ -443,11 +390,16 @@
                 stopRecording();
             };
             
-            // Запуск распознавания
+            // Прямой запуск распознавания (без предварительной проверки)
             try {
                 recognition.start();
             } catch (error) {
-                statusEl.textContent = "Ошибка: " + error.message;
+                // Специфичная ошибка для Chrome на Android
+                if (error.message.includes('without user gesture')) {
+                    statusEl.innerHTML = "Ошибка: Запустите запись снова!<br>Android требует повторного нажатия после разрешения";
+                } else {
+                    statusEl.textContent = "Ошибка: " + error.message;
+                }
                 stopRecording();
             }
         }
@@ -484,7 +436,6 @@
             statusEl.textContent = "Общение с DeepSeek...";
             
             try {
-                // Исправленный эндпоинт
                 const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
                     method: 'POST',
                     headers: {
@@ -512,7 +463,6 @@
                 
                 const data = await response.json();
                 
-                // Обработка ответа
                 if (data.choices && data.choices.length > 0 && data.choices[0].message) {
                     statusEl.textContent = "Ответ получен!";
                     return data.choices[0].message.content;
@@ -531,28 +481,24 @@
         // СИНТЕЗ РЕЧИ (TTS)
         // =====================
         function speakText(text) {
-            // Обновление выбранного голоса
             const selectedVoiceName = voiceSelect.value;
             if (selectedVoiceName) {
                 selectedVoice = voices.find(voice => voice.name === selectedVoiceName);
             }
             
-            // Если голоса еще не загружены, попробуем снова
             if (!voices.length) {
                 voices = speechSynthesis.getVoices();
             }
             
-            // Создание utterance
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'ru-RU';
-            utterance.rate = 1.0; // Скорость речи
-            utterance.pitch = 1.0; // Тон голоса
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
             
             if (selectedVoice) {
                 utterance.voice = selectedVoice;
             }
             
-            // Обработчики событий
             utterance.onstart = () => {
                 statusEl.textContent = "Озвучивание...";
             };
@@ -566,7 +512,6 @@
                 statusEl.textContent = "Ошибка озвучки";
             };
             
-            // Запуск синтеза речи
             speechSynthesis.speak(utterance);
         }
 
@@ -579,13 +524,11 @@
             messageDiv.textContent = text;
             chatArea.appendChild(messageDiv);
             
-            // Автопрокрутка при включенной опции
             if (autoScrollCheckbox.checked) {
                 chatArea.scrollTop = chatArea.scrollHeight;
             }
         }
 
-        // Сохранение настроек в LocalStorage
         function saveSettings() {
             const settings = {
                 apiKey: deepseekApiKeyInput.value,
@@ -595,7 +538,6 @@
             localStorage.setItem('voiceAssistantSettings', JSON.stringify(settings));
         }
 
-        // Загрузка настроек из LocalStorage
         function loadSettings() {
             const savedSettings = localStorage.getItem('voiceAssistantSettings');
             if (savedSettings) {
@@ -604,14 +546,12 @@
                 voiceSelect.value = settings.voice || '';
                 autoScrollCheckbox.checked = settings.autoScroll !== false;
                 
-                // Обновление выбранного голоса
                 if (settings.voice) {
                     selectedVoice = voices.find(v => v.name === settings.voice) || null;
                 }
             }
         }
 
-        // Автосохранение настроек при изменении
         deepseekApiKeyInput.addEventListener('input', saveSettings);
         voiceSelect.addEventListener('change', () => {
             const voiceName = voiceSelect.value;
