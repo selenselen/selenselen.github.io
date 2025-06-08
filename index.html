@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Голосовой DeepSeek - Персональный помощник</title>
+    <title>Голосовой DeepSeek - Веб версия</title>
     <style>
         * {
             box-sizing: border-box;
@@ -57,15 +57,6 @@
         .btn.listening {
             background: #f44336;
             animation: pulse 1.5s infinite;
-        }
-        .btn.secondary {
-            background: #2196F3;
-            padding: 15px;
-            font-size: 1.2rem;
-            margin: 10px 0;
-        }
-        .btn.secondary:hover {
-            background: #0b7dda;
         }
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7); }
@@ -181,29 +172,6 @@
             border: none;
             background: white;
         }
-        .auth-container {
-            background: rgba(255,255,255,0.1);
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        .auth-status {
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
-            margin: 10px 0;
-        }
-        .auth-success {
-            background: rgba(46, 204, 113, 0.2);
-            border: 1px solid #2ecc71;
-        }
-        .auth-error {
-            background: rgba(231, 76, 60, 0.2);
-            border: 1px solid #e74c3c;
-        }
-        .hidden {
-            display: none;
-        }
         @media (max-width: 600px) {
             .container {
                 padding: 15px;
@@ -223,7 +191,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🧠 Персональный DeepSeek</h1>
+        <h1>🧠 Голосовой DeepSeek (Бесплатно!)</h1>
         
         <div id="permissionPanel" class="permission-panel">
             <h3>⚠️ Требуется доступ к микрофону</h3>
@@ -246,14 +214,6 @@
         </div>
         
         <div id="appContent" style="display: none;">
-            <div class="auth-container">
-                <h3>🔑 Авторизация в DeepSeek</h3>
-                <div id="authStatus" class="auth-status hidden"></div>
-                <button id="loginBtn" class="btn secondary">Войти в свой аккаунт</button>
-                <button id="logoutBtn" class="btn secondary hidden">Выйти из аккаунта</button>
-                <div id="userInfo" class="auth-status hidden"></div>
-            </div>
-            
             <select id="voiceSelect" class="voice-select">
                 <option value="">-- Выберите голос --</option>
             </select>
@@ -263,7 +223,7 @@
             <div class="status" id="status">Статус: Готов к работе</div>
             
             <div class="chat-area" id="chatArea">
-                <div class="message ai-message">Привет! Я ваш персональный помощник DeepSeek. Сначала войдите в свой аккаунт, затем нажмите кнопку и говорите!</div>
+                <div class="message ai-message">Привет! Я ваш голосовой помощник DeepSeek. Нажмите кнопку и говорите со мной!</div>
             </div>
             
             <div class="iframe-container" id="iframeContainer">
@@ -273,9 +233,8 @@
             <div class="instructions">
                 <h3>📌 Как использовать:</h3>
                 <ul>
-                    <li>Нажмите "Войти в свой аккаунт" для персонального общения</li>
                     <li>Нажмите кнопку микрофона и говорите четко</li>
-                    <li>Ваш запрос будет отправлен в DeepSeek Chat</li>
+                    <li>Ваш запрос будет автоматически отправлен в DeepSeek Chat</li>
                     <li>Ответ появится в чате и будет озвучен</li>
                     <li>Для сложных запросов используйте чат внизу</li>
                 </ul>
@@ -283,7 +242,7 @@
         </div>
         
         <footer>
-            Работает полностью в браузере • Персональный аккаунт • Бесплатно
+            Работает полностью в браузере • Не требует оплаты • Для личного использования
         </footer>
     </div>
 
@@ -300,10 +259,6 @@
         const requestPermissionBtn = document.getElementById('requestPermissionBtn');
         const iframeContainer = document.getElementById('iframeContainer');
         const deepseekIframe = document.getElementById('deepseekIframe');
-        const loginBtn = document.getElementById('loginBtn');
-        const logoutBtn = document.getElementById('logoutBtn');
-        const authStatus = document.getElementById('authStatus');
-        const userInfo = document.getElementById('userInfo');
 
         // =====================
         // СОСТОЯНИЕ ПРИЛОЖЕНИЯ
@@ -315,8 +270,6 @@
         let microphoneAccessGranted = false;
         let chatHistory = [];
         let lastMessageTime = 0;
-        let isAuthenticated = false;
-        let authCheckInterval;
 
         // =====================
         // ИНИЦИАЛИЗАЦИЯ
@@ -331,143 +284,7 @@
             // Загрузка голосов для синтеза речи
             loadVoices();
             speechSynthesis.onvoiceschanged = loadVoices;
-            
-            // Проверка состояния авторизации
-            checkAuthState();
-            
-            // Запуск периодической проверки авторизации
-            authCheckInterval = setInterval(checkAuthState, 5000);
         };
-
-        // Проверка авторизации
-        async function checkAuthState() {
-            try {
-                const isAuthed = await isUserAuthenticated();
-                if (isAuthed !== isAuthenticated) {
-                    isAuthenticated = isAuthed;
-                    updateAuthUI();
-                    
-                    if (isAuthenticated) {
-                        // Пытаемся получить информацию о пользователе
-                        try {
-                            const userData = await getUserInfo();
-                            if (userData) {
-                                userInfo.innerHTML = `Вы вошли как: <strong>${userData.name || userData.email || 'Пользователь'}</strong>`;
-                                userInfo.classList.remove('hidden');
-                            }
-                        } catch (e) {
-                            console.log("Не удалось получить данные пользователя:", e);
-                        }
-                    }
-                }
-            } catch (e) {
-                console.log("Ошибка проверки авторизации:", e);
-            }
-        }
-
-        // Проверка авторизации пользователя
-        async function isUserAuthenticated() {
-            return new Promise((resolve) => {
-                try {
-                    if (!deepseekIframe.contentWindow) return resolve(false);
-                    
-                    // Проверяем наличие элемента выхода
-                    const logoutButton = deepseekIframe.contentDocument.querySelector('button:contains("Logout"), button:contains("Выйти")');
-                    
-                    // Проверяем наличие аватара пользователя
-                    const userAvatar = deepseekIframe.contentDocument.querySelector('.user-avatar, .avatar');
-                    
-                    // Проверяем наличие кнопки входа
-                    const loginButton = deepseekIframe.contentDocument.querySelector('button:contains("Login"), button:contains("Войти")');
-                    
-                    // Если есть кнопка выхода или аватар - пользователь авторизован
-                    if (logoutButton || userAvatar) {
-                        resolve(true);
-                    } 
-                    // Если есть кнопка входа - пользователь не авторизован
-                    else if (loginButton) {
-                        resolve(false);
-                    } 
-                    // Если не удалось определить, используем fallback
-                    else {
-                        // Проверяем наличие токена в localStorage iframe
-                        try {
-                            const iframeStorage = deepseekIframe.contentWindow.localStorage;
-                            const token = iframeStorage.getItem('auth_token') || 
-                                          iframeStorage.getItem('access_token') || 
-                                          iframeStorage.getItem('user_token');
-                            resolve(!!token);
-                        } catch (e) {
-                            // Если доступ к localStorage запрещен
-                            resolve(false);
-                        }
-                    }
-                } catch (e) {
-                    console.log("Ошибка проверки авторизации:", e);
-                    resolve(false);
-                }
-            });
-        }
-
-        // Получение информации о пользователе
-        async function getUserInfo() {
-            return new Promise((resolve) => {
-                try {
-                    if (!deepseekIframe.contentWindow) return resolve(null);
-                    
-                    // Ищем элемент с именем пользователя
-                    const userNameEl = deepseekIframe.contentDocument.querySelector('.user-name, .username');
-                    
-                    // Ищем элемент с email пользователя
-                    const userEmailEl = deepseekIframe.contentDocument.querySelector('.user-email, .email');
-                    
-                    // Ищем аватар
-                    const userAvatarEl = deepseekIframe.contentDocument.querySelector('.user-avatar, .avatar');
-                    
-                    if (userNameEl || userEmailEl) {
-                        resolve({
-                            name: userNameEl ? userNameEl.textContent.trim() : null,
-                            email: userEmailEl ? userEmailEl.textContent.trim() : null,
-                            avatar: userAvatarEl ? userAvatarEl.src : null
-                        });
-                    } else {
-                        resolve(null);
-                    }
-                } catch (e) {
-                    console.log("Ошибка получения данных пользователя:", e);
-                    resolve(null);
-                }
-            });
-        }
-
-        // Обновление интерфейса авторизации
-        function updateAuthUI() {
-            if (isAuthenticated) {
-                loginBtn.classList.add('hidden');
-                logoutBtn.classList.remove('hidden');
-                authStatus.textContent = "Вы авторизованы! Можно общаться";
-                authStatus.className = "auth-status auth-success";
-                authStatus.classList.remove('hidden');
-                
-                // Обновляем сообщение в чате
-                const aiMessages = chatArea.querySelectorAll('.ai-message');
-                if (aiMessages.length > 0) {
-                    aiMessages[aiMessages.length - 1].textContent = 
-                        "Вы авторизованы! Теперь вы общаетесь под своим аккаунтом. Нажмите кнопку и говорите со мной!";
-                }
-            } else {
-                loginBtn.classList.remove('hidden');
-                logoutBtn.classList.add('hidden');
-                userInfo.classList.add('hidden');
-                
-                // Обновляем сообщение в чате
-                const aiMessages = chatArea.querySelectorAll('.ai-message');
-                if (aiMessages.length > 0) {
-                    aiMessages[aiMessages.length - 1].textContent = 
-                        "Привет! Я ваш персональный помощник DeepSeek. Сначала войдите в свой аккаунт, затем нажмите кнопку и говорите!";
-                }
-            }
-        }
 
         // Проверка поддержки браузером
         function checkBrowserSupport() {
@@ -485,7 +302,7 @@
                 supportMessage += "НЕТ синтеза речи";
                 allSupported = false;
             } else {
-                supportMessage += "Синтеза речи";
+                supportMessage += "Синтез речи";
             }
             
             if (!allSupported) {
@@ -613,52 +430,9 @@
         }
 
         // =====================
-        // АВТОРИЗАЦИЯ
-        // =====================
-        loginBtn.addEventListener('click', () => {
-            iframeContainer.style.display = "block";
-            authStatus.textContent = "Открыт чат DeepSeek. Пожалуйста, войдите в свой аккаунт...";
-            authStatus.className = "auth-status";
-            authStatus.classList.remove('hidden');
-            
-            // Фокусируем iframe для удобства пользователя
-            setTimeout(() => {
-                deepseekIframe.contentWindow.focus();
-            }, 1000);
-        });
-
-        logoutBtn.addEventListener('click', () => {
-            try {
-                // Находим кнопку выхода в iframe
-                const logoutButton = deepseekIframe.contentDocument.querySelector('button:contains("Logout"), button:contains("Выйти")');
-                
-                if (logoutButton) {
-                    logoutButton.click();
-                    authStatus.textContent = "Вы вышли из аккаунта";
-                    authStatus.className = "auth-status";
-                    userInfo.classList.add('hidden');
-                } else {
-                    authStatus.textContent = "Не удалось найти кнопку выхода. Выйдите вручную в чате.";
-                    authStatus.className = "auth-status auth-error";
-                }
-            } catch (e) {
-                console.log("Ошибка при выходе:", e);
-                authStatus.textContent = "Ошибка при выходе. Обновите страницу и попробуйте снова.";
-                authStatus.className = "auth-status auth-error";
-            }
-        });
-
-        // =====================
         // УПРАВЛЕНИЕ ЗАПИСЬЮ
         // =====================
         startBtn.addEventListener('click', () => {
-            if (!isAuthenticated) {
-                authStatus.textContent = "Ошибка: Сначала войдите в свой аккаунт DeepSeek!";
-                authStatus.className = "auth-status auth-error";
-                authStatus.classList.remove('hidden');
-                return;
-            }
-            
             if (isRecording) {
                 stopRecording();
             } else {
@@ -718,7 +492,7 @@
                 // Ограничение частоты запросов (1 запрос в 20 секунд)
                 const now = Date.now();
                 if (now - lastMessageTime < 20000) {
-                    const waitTime = Math.ceil((20000 - (now - lastMessageTime)) / 1000);
+                    const waitTime = Math.ceil((20000 - (now - lastMessageTime)) / 1000;
                     const message = `Подождите ${waitTime} секунд перед следующим запросом`;
                     statusEl.textContent = message;
                     addMessageToChat(message, "ai");
@@ -853,12 +627,8 @@
                         const lastMessage = messages[messages.length - 1];
                         
                         // Проверяем, что это сообщение от DeepSeek
-                        if (lastMessage.querySelector('.bot-message') || 
-                            lastMessage.querySelector('.message-bot') || 
-                            lastMessage.textContent.includes('DeepSeek')) {
-                            
-                            const responseText = lastMessage.querySelector('.message-content, .content')?.textContent || 
-                                                lastMessage.textContent;
+                        if (lastMessage.querySelector('.bot-message')) {
+                            const responseText = lastMessage.querySelector('.message-content').textContent;
                             
                             // Добавляем ответ в чат
                             addMessageToChat(responseText, "ai");
@@ -991,15 +761,7 @@
             } catch (e) {
                 console.log("Не удалось добавить стили для iframe:", e);
             }
-            
-            // Проверяем авторизацию после загрузки
-            setTimeout(checkAuthState, 2000);
         };
-        
-        // Очистка при закрытии страницы
-        window.addEventListener('beforeunload', () => {
-            clearInterval(authCheckInterval);
-        });
     </script>
 </body>
 </html>
