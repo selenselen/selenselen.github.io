@@ -58,6 +58,15 @@
             background: #f44336;
             animation: pulse 1.5s infinite;
         }
+        .btn.secondary {
+            background: #2196F3;
+            padding: 15px;
+            font-size: 1.2rem;
+            margin: 10px 0;
+        }
+        .btn.secondary:hover {
+            background: #0b7dda;
+        }
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7); }
             70% { box-shadow: 0 0 0 15px rgba(244, 67, 54, 0); }
@@ -95,30 +104,6 @@
         .ai-message {
             background: #333;
             margin-right: auto;
-        }
-        .settings {
-            background: rgba(255,255,255,0.1);
-            padding: 15px;
-            border-radius: 10px;
-            margin: 20px 0;
-        }
-        .settings input {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border-radius: 8px;
-            border: none;
-            background: rgba(0,0,0,0.4);
-            color: white;
-        }
-        .voice-select {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border-radius: 8px;
-            border: none;
-            background: rgba(0,0,0,0.4);
-            color: white;
         }
         .permission-panel {
             background: rgba(255, 0, 0, 0.2);
@@ -166,6 +151,34 @@
             margin-top: 10px;
             transition: all 0.3s;
         }
+        .auth-container {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .auth-status {
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 10px 0;
+        }
+        .auth-success {
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid #2ecc71;
+        }
+        .auth-error {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+        }
+        .hidden {
+            display: none;
+        }
+        .tab-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
         @media (max-width: 600px) {
             .container {
                 padding: 15px;
@@ -208,17 +221,16 @@
         </div>
         
         <div id="appContent" style="display: none;">
-            <div class="settings">
-                <h3>⚙️ Настройки</h3>
-                <input type="text" id="deepseekApiKey" placeholder="DeepSeek API Key (обязательно)">
-                
-                <select id="voiceSelect" class="voice-select">
-                    <option value="">-- Выберите голос --</option>
-                </select>
-                
-                <label>
-                    <input type="checkbox" id="autoScroll" checked> Автопрокрутка сообщений
-                </label>
+            <div class="auth-container">
+                <h3>🔑 Авторизация в DeepSeek</h3>
+                <div id="authStatus" class="auth-status hidden"></div>
+                <button id="loginBtn" class="btn secondary">Войти в свой аккаунт</button>
+                <div id="userInfo" class="auth-status hidden"></div>
+            </div>
+            
+            <div class="tab-controls">
+                <button id="openChatBtn" class="btn secondary">Открыть чат</button>
+                <button id="focusChatBtn" class="btn secondary">Фокусировать чат</button>
             </div>
             
             <button id="startBtn" class="btn">🎤 Нажми и говори</button>
@@ -226,43 +238,41 @@
             <div class="status" id="status">Статус: Готов к работе</div>
             
             <div class="chat-area" id="chatArea">
-                <div class="message ai-message">Привет! Я ваш голосовой помощник DeepSeek. Нажмите кнопку и говорите со мной!</div>
+                <div class="message ai-message">Привет! Я ваш голосовой помощник DeepSeek. Сначала войдите в свой аккаунт, затем нажмите кнопку и говорите!</div>
             </div>
             
             <div class="instructions">
                 <h3>📌 Как использовать:</h3>
                 <ul>
-                    <li>Получите API-ключ на <a href="https://platform.deepseek.com/" target="_blank" style="color: #4fc3f7;">platform.deepseek.com</a></li>
-                    <li>Вставьте ключ в поле выше</li>
-                    <li>Нажмите кнопку и говорите чётко в микрофон</li>
-                    <li>Ответ появится в чате и будет озвучен</li>
+                    <li>Нажмите "Войти в свой аккаунт" для авторизации</li>
+                    <li>Нажмите "Открыть чат" для работы с DeepSeek</li>
+                    <li>Говорите в микрофон - ваш запрос будет отправлен в чат</li>
+                    <li>Ответ появится в этом окне и будет озвучен</li>
+                    <li>Для сложных запросов используйте кнопку "Фокусировать чат"</li>
                 </ul>
             </div>
         </div>
         
         <footer>
-            Работает полностью в браузере • Не требует серверов • Для личного использования
+            Работает полностью в браузере • Персональный аккаунт • Бесплатно
         </footer>
     </div>
 
     <script>
-        // =====================
-        // КОНФИГУРАЦИЯ
-        // =====================
-        const DEFAULT_DEEPSEEK_API_KEY = "";
-
         // =====================
         // ЭЛЕМЕНТЫ ИНТЕРФЕЙСА
         // =====================
         const startBtn = document.getElementById('startBtn');
         const statusEl = document.getElementById('status');
         const chatArea = document.getElementById('chatArea');
-        const deepseekApiKeyInput = document.getElementById('deepseekApiKey');
-        const voiceSelect = document.getElementById('voiceSelect');
-        const autoScrollCheckbox = document.getElementById('autoScroll');
         const permissionPanel = document.getElementById('permissionPanel');
         const appContent = document.getElementById('appContent');
         const requestPermissionBtn = document.getElementById('requestPermissionBtn');
+        const loginBtn = document.getElementById('loginBtn');
+        const authStatus = document.getElementById('authStatus');
+        const userInfo = document.getElementById('userInfo');
+        const openChatBtn = document.getElementById('openChatBtn');
+        const focusChatBtn = document.getElementById('focusChatBtn');
 
         // =====================
         // СОСТОЯНИЕ ПРИЛОЖЕНИЯ
@@ -272,13 +282,14 @@
         let voices = [];
         let selectedVoice = null;
         let microphoneAccessGranted = false;
+        let deepseekTab = null;
+        let isAuthenticated = false;
+        let sessionToken = '';
 
         // =====================
         // ИНИЦИАЛИЗАЦИЯ
         // =====================
         window.onload = async function() {
-            deepseekApiKeyInput.value = DEFAULT_DEEPSEEK_API_KEY;
-            
             // Проверка поддержки браузером
             checkBrowserSupport();
             
@@ -289,9 +300,44 @@
             loadVoices();
             speechSynthesis.onvoiceschanged = loadVoices;
             
-            // Загрузка сохраненных настроек
-            loadSettings();
+            // Проверка сохраненной сессии
+            checkSavedSession();
         };
+
+        // Проверка сохраненной сессии
+        function checkSavedSession() {
+            const savedSession = localStorage.getItem('deepseekSession');
+            if (savedSession) {
+                try {
+                    const session = JSON.parse(savedSession);
+                    sessionToken = session.token;
+                    isAuthenticated = true;
+                    
+                    authStatus.textContent = "Сессия восстановлена!";
+                    authStatus.className = "auth-status auth-success";
+                    authStatus.classList.remove('hidden');
+                    
+                    userInfo.textContent = `Вы вошли как: ${session.email || 'Пользователь'}`;
+                    userInfo.classList.remove('hidden');
+                    
+                    loginBtn.textContent = "Переавторизоваться";
+                    
+                } catch (e) {
+                    console.error("Ошибка восстановления сессии:", e);
+                    localStorage.removeItem('deepseekSession');
+                }
+            }
+        }
+
+        // Сохранение сессии
+        function saveSession(email) {
+            const session = {
+                token: sessionToken,
+                email: email,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('deepseekSession', JSON.stringify(session));
+        }
 
         // Проверка поддержки браузером
         function checkBrowserSupport() {
@@ -309,7 +355,7 @@
                 supportMessage += "НЕТ синтеза речи";
                 allSupported = false;
             } else {
-                supportMessage += "Синтез речи";
+                supportMessage += "Синтеза речи";
             }
             
             if (!allSupported) {
@@ -404,37 +450,146 @@
         // Загрузка доступных голосов
         function loadVoices() {
             voices = speechSynthesis.getVoices();
-            voiceSelect.innerHTML = '<option value="">-- Выберите голос --</option>';
             
             const russianVoices = voices.filter(voice => 
                 voice.lang.startsWith('ru') || voice.lang.startsWith('RU')
             );
             
-            const preferredVoices = [
-                'Google русский',
-                'Microsoft Irina - Russian',
-                'Yandex',
-                'Russian'
-            ];
-            
-            russianVoices.sort((a, b) => {
-                const aIndex = preferredVoices.findIndex(name => a.name.includes(name));
-                const bIndex = preferredVoices.findIndex(name => b.name.includes(name));
-                return (bIndex === -1 ? 999 : bIndex) - (aIndex === -1 ? 999 : aIndex);
-            });
-            
-            russianVoices.forEach(voice => {
-                const option = document.createElement('option');
-                option.value = voice.name;
-                option.textContent = `${voice.name} (${voice.lang})`;
-                voiceSelect.appendChild(option);
-            });
-            
             if (russianVoices.length > 0 && !selectedVoice) {
-                voiceSelect.value = russianVoices[0].name;
                 selectedVoice = russianVoices[0];
             }
         }
+
+        // =====================
+        // АВТОРИЗАЦИЯ И УПРАВЛЕНИЕ ВКЛАДКАМИ
+        // =====================
+        loginBtn.addEventListener('click', () => {
+            // Открываем окно авторизации
+            const authWindow = window.open(
+                'https://chat.deepseek.com/auth?mode=login', 
+                'deepseek_auth',
+                'width=800,height=600,scrollbars=yes'
+            );
+            
+            authStatus.textContent = "Открыто окно авторизации. Пожалуйста, войдите в свой аккаунт...";
+            authStatus.className = "auth-status";
+            authStatus.classList.remove('hidden');
+            
+            // Проверяем авторизацию каждые 2 секунды
+            const checkAuthInterval = setInterval(() => {
+                try {
+                    if (authWindow.closed) {
+                        clearInterval(checkAuthInterval);
+                        authStatus.textContent = "Окно авторизации закрыто";
+                        return;
+                    }
+                    
+                    // Проверяем URL на наличие признаков успешной авторизации
+                    if (authWindow.location.href.includes('https://chat.deepseek.com/chat')) {
+                        clearInterval(checkAuthInterval);
+                        
+                        // Получаем токен из localStorage новой вкладки
+                        try {
+                            const token = authWindow.localStorage.getItem('access_token');
+                            if (token) {
+                                sessionToken = token;
+                                isAuthenticated = true;
+                                
+                                // Пытаемся получить email пользователя
+                                let userEmail = 'Пользователь';
+                                try {
+                                    const email = authWindow.localStorage.getItem('user_email');
+                                    if (email) userEmail = email;
+                                } catch (e) {
+                                    console.log("Не удалось получить email:", e);
+                                }
+                                
+                                authStatus.textContent = "Авторизация успешна!";
+                                authStatus.className = "auth-status auth-success";
+                                
+                                userInfo.textContent = `Вы вошли как: ${userEmail}`;
+                                userInfo.classList.remove('hidden');
+                                
+                                saveSession(userEmail);
+                                
+                                // Закрываем окно авторизации
+                                setTimeout(() => {
+                                    try {
+                                        authWindow.close();
+                                    } catch (e) {
+                                        console.log("Не удалось закрыть окно авторизации:", e);
+                                    }
+                                }, 1000);
+                                
+                                // Обновляем кнопку
+                                loginBtn.textContent = "Переавторизоваться";
+                                
+                                // Открываем чат
+                                openDeepSeekChat();
+                            }
+                        } catch (e) {
+                            console.log("Ошибка получения токена:", e);
+                            authStatus.textContent = "Ошибка авторизации. Попробуйте снова.";
+                            authStatus.className = "auth-status auth-error";
+                        }
+                    }
+                } catch (e) {
+                    // Игнорируем ошибки доступа к cross-origin
+                }
+            }, 2000);
+        });
+
+        // Открытие чата DeepSeek
+        function openDeepSeekChat() {
+            if (!deepseekTab || deepseekTab.closed) {
+                deepseekTab = window.open(
+                    'https://chat.deepseek.com/chat', 
+                    'deepseek_chat',
+                    'width=1000,height=700,scrollbars=yes'
+                );
+                
+                if (!deepseekTab) {
+                    authStatus.textContent = "Не удалось открыть чат. Разрешите всплывающие окна!";
+                    authStatus.className = "auth-status auth-error";
+                    return;
+                }
+                
+                authStatus.textContent = "Чат DeepSeek открыт в новой вкладке";
+                
+                // Фокусируем вкладку через 1 секунду
+                setTimeout(() => {
+                    try {
+                        if (deepseekTab) deepseekTab.focus();
+                    } catch (e) {
+                        console.log("Ошибка фокусировки вкладки:", e);
+                    }
+                }, 1000);
+            } else {
+                try {
+                    deepseekTab.focus();
+                } catch (e) {
+                    console.log("Ошибка фокусировки вкладки:", e);
+                }
+            }
+        }
+
+        // Кнопка открытия чата
+        openChatBtn.addEventListener('click', openDeepSeekChat);
+
+        // Кнопка фокусировки чата
+        focusChatBtn.addEventListener('click', () => {
+            if (deepseekTab && !deepseekTab.closed) {
+                try {
+                    deepseekTab.focus();
+                } catch (e) {
+                    console.log("Ошибка фокусировки вкладки:", e);
+                }
+            } else {
+                authStatus.textContent = "Сначала откройте чат!";
+                authStatus.className = "auth-status auth-error";
+                authStatus.classList.remove('hidden');
+            }
+        });
 
         // =====================
         // УПРАВЛЕНИЕ ЗАПИСЬЮ
@@ -448,9 +603,10 @@
         });
 
         function startRecording() {
-            const apiKey = deepseekApiKeyInput.value.trim();
-            if (!apiKey) {
-                statusEl.textContent = "Ошибка: Введите API ключ DeepSeek";
+            if (!isAuthenticated) {
+                authStatus.textContent = "Ошибка: Сначала войдите в свой аккаунт DeepSeek!";
+                authStatus.className = "auth-status auth-error";
+                authStatus.classList.remove('hidden');
                 return;
             }
             
@@ -471,9 +627,6 @@
                 startBtn.textContent = "⏹️ Слушаю...";
                 startBtn.classList.add('listening');
                 statusEl.textContent = "Говорите сейчас...";
-                
-                const retryBtn = document.getElementById('retryBtn');
-                if (retryBtn) retryBtn.remove();
             };
             
             recognition.onresult = async (event) => {
@@ -481,6 +634,7 @@
                 statusEl.textContent = `Распознано: "${transcript}"`;
                 addMessageToChat(transcript, "user");
                 
+                // Отправляем запрос через API с токеном сессии
                 const response = await sendToDeepSeek(transcript);
                 
                 if (response) {
@@ -512,15 +666,6 @@
                 
                 statusEl.innerHTML = errorMessage.replace(/\n/g, '<br>');
                 stopRecording();
-                
-                if (!document.getElementById('retryBtn')) {
-                    const retryBtn = document.createElement('button');
-                    retryBtn.id = 'retryBtn';
-                    retryBtn.className = 'retry-btn';
-                    retryBtn.textContent = "Попробовать снова";
-                    retryBtn.onclick = () => location.reload();
-                    statusEl.parentNode.insertBefore(retryBtn, statusEl.nextSibling);
-                }
             };
             
             recognition.onend = () => {
@@ -528,16 +673,9 @@
             };
             
             try {
-                // Запуск с небольшой задержкой для стабильности на мобильных
-                setTimeout(() => {
-                    recognition.start();
-                }, 100);
+                recognition.start();
             } catch (error) {
-                if (error.message.includes('without user gesture')) {
-                    statusEl.innerHTML = "Ошибка: Запустите запись снова!<br>Android требует повторного нажатия после разрешения";
-                } else {
-                    statusEl.textContent = "Ошибка: " + error.message;
-                }
+                statusEl.textContent = "Ошибка: " + error.message;
                 stopRecording();
             }
         }
@@ -554,20 +692,14 @@
             isRecording = false;
             startBtn.textContent = "🎤 Нажми и говори";
             startBtn.classList.remove('listening');
-            
-            if (statusEl.textContent.includes("Говорите сейчас")) {
-                statusEl.textContent = "Запись остановлена";
-            }
         }
 
         // =====================
         // ОБРАЩЕНИЕ К DEEPSEEK API
         // =====================
         async function sendToDeepSeek(text) {
-            const apiKey = deepseekApiKeyInput.value.trim();
-            
-            if (!apiKey) {
-                statusEl.textContent = "Ошибка: API ключ не задан";
+            if (!sessionToken) {
+                statusEl.textContent = "Ошибка: Токен сессии не найден";
                 return null;
             }
             
@@ -578,7 +710,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
+                        'Authorization': `Bearer ${sessionToken}`
                     },
                     body: JSON.stringify({
                         model: "deepseek-chat",
@@ -610,7 +742,17 @@
             } catch (error) {
                 console.error("Ошибка запроса:", error);
                 statusEl.textContent = "Ошибка: " + error.message;
-                addMessageToChat("⚠️ Не удалось получить ответ. Проверьте API ключ и подключение к интернету.", "ai");
+                
+                if (error.message.includes('401')) {
+                    addMessageToChat("⚠️ Ошибка авторизации. Пожалуйста, войдите заново.", "ai");
+                    isAuthenticated = false;
+                    localStorage.removeItem('deepseekSession');
+                    authStatus.textContent = "Сессия устарела. Пожалуйста, войдите снова.";
+                    authStatus.className = "auth-status auth-error";
+                } else {
+                    addMessageToChat("⚠️ Не удалось получить ответ. Проверьте подключение к интернету.", "ai");
+                }
+                
                 return null;
             }
         }
@@ -619,14 +761,14 @@
         // СИНТЕЗ РЕЧИ (TTS)
         // =====================
         function speakText(text) {
-            const selectedVoiceName = voiceSelect.value;
-            if (selectedVoiceName) {
-                selectedVoice = voices.find(voice => voice.name === selectedVoiceName);
-            }
+            if (!text) return;
             
             if (!voices.length) {
                 voices = speechSynthesis.getVoices();
             }
+            
+            // Останавливаем текущее воспроизведение
+            speechSynthesis.cancel();
             
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'ru-RU';
@@ -662,41 +804,9 @@
             messageDiv.textContent = text;
             chatArea.appendChild(messageDiv);
             
-            if (autoScrollCheckbox.checked) {
-                chatArea.scrollTop = chatArea.scrollHeight;
-            }
+            // Автоматическая прокрутка
+            chatArea.scrollTop = chatArea.scrollHeight;
         }
-
-        function saveSettings() {
-            const settings = {
-                apiKey: deepseekApiKeyInput.value,
-                voice: voiceSelect.value,
-                autoScroll: autoScrollCheckbox.checked
-            };
-            localStorage.setItem('voiceAssistantSettings', JSON.stringify(settings));
-        }
-
-        function loadSettings() {
-            const savedSettings = localStorage.getItem('voiceAssistantSettings');
-            if (savedSettings) {
-                const settings = JSON.parse(savedSettings);
-                deepseekApiKeyInput.value = settings.apiKey || '';
-                voiceSelect.value = settings.voice || '';
-                autoScrollCheckbox.checked = settings.autoScroll !== false;
-                
-                if (settings.voice) {
-                    selectedVoice = voices.find(v => v.name === settings.voice) || null;
-                }
-            }
-        }
-
-        deepseekApiKeyInput.addEventListener('input', saveSettings);
-        voiceSelect.addEventListener('change', () => {
-            const voiceName = voiceSelect.value;
-            selectedVoice = voices.find(v => v.name === voiceName) || null;
-            saveSettings();
-        });
-        autoScrollCheckbox.addEventListener('change', saveSettings);
     </script>
 </body>
 </html>
