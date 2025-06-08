@@ -120,6 +120,19 @@
             background: rgba(0,0,0,0.4);
             color: white;
         }
+        .permission-panel {
+            background: rgba(255, 0, 0, 0.2);
+            border: 2px solid #ff5555;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .permission-btn {
+            background: #ff5722;
+            margin: 10px auto;
+            max-width: 300px;
+        }
         footer {
             text-align: center;
             margin-top: 30px;
@@ -164,6 +177,9 @@
                 padding: 15px;
                 font-size: 1.2rem;
             }
+            .permission-panel {
+                padding: 15px;
+            }
         }
     </style>
 </head>
@@ -171,36 +187,57 @@
     <div class="container">
         <h1>🧠 Голосовой DeepSeek</h1>
         
-        <div class="settings">
-            <h3>⚙️ Настройки</h3>
-            <input type="text" id="deepseekApiKey" placeholder="DeepSeek API Key (обязательно)">
-            
-            <select id="voiceSelect" class="voice-select">
-                <option value="">-- Выберите голос --</option>
-            </select>
-            
-            <label>
-                <input type="checkbox" id="autoScroll" checked> Автопрокрутка сообщений
-            </label>
+        <div id="permissionPanel" class="permission-panel">
+            <h3>⚠️ Требуется доступ к микрофону</h3>
+            <p>Для работы приложения необходимо разрешить доступ к микрофону.</p>
+            <button id="requestPermissionBtn" class="btn permission-btn">Разрешить доступ к микрофону</button>
+            <div class="instructions">
+                <h3>📱 Инструкция для Android:</h3>
+                <ol>
+                    <li>Нажмите кнопку выше</li>
+                    <li>В появившемся окне выберите "Разрешить"</li>
+                    <li>Если окно не появляется, проверьте:
+                        <ul>
+                            <li>Браузер Chrome обновлен до последней версии</li>
+                            <li>В настройках Chrome → Разрешения сайтов → Микрофон</li>
+                            <li>Сайт открыт по HTTPS (адрес начинается с https://)</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
         </div>
         
-        <button id="startBtn" class="btn">🎤 Нажми и говори</button>
-        
-        <div class="status" id="status">Статус: Готов к работе</div>
-        
-        <div class="chat-area" id="chatArea">
-            <div class="message ai-message">Привет! Я ваш голосовой помощник DeepSeek. Нажмите кнопку и говорите со мной!</div>
-        </div>
-        
-        <div class="instructions">
-            <h3>📌 Как использовать:</h3>
-            <ul>
-                <li>Получите API-ключ на <a href="https://platform.deepseek.com/" target="_blank" style="color: #4fc3f7;">platform.deepseek.com</a></li>
-                <li>Вставьте ключ в поле выше</li>
-                <li>Нажмите кнопку и говорите чётко в микрофон</li>
-                <li>Ответ появится в чате и будет озвучен</li>
-                <li><b>Важно для Android:</b> При первом использовании нажмите "Разрешить" при запросе доступа к микрофону</li>
-            </ul>
+        <div id="appContent" style="display: none;">
+            <div class="settings">
+                <h3>⚙️ Настройки</h3>
+                <input type="text" id="deepseekApiKey" placeholder="DeepSeek API Key (обязательно)">
+                
+                <select id="voiceSelect" class="voice-select">
+                    <option value="">-- Выберите голос --</option>
+                </select>
+                
+                <label>
+                    <input type="checkbox" id="autoScroll" checked> Автопрокрутка сообщений
+                </label>
+            </div>
+            
+            <button id="startBtn" class="btn">🎤 Нажми и говори</button>
+            
+            <div class="status" id="status">Статус: Готов к работе</div>
+            
+            <div class="chat-area" id="chatArea">
+                <div class="message ai-message">Привет! Я ваш голосовой помощник DeepSeek. Нажмите кнопку и говорите со мной!</div>
+            </div>
+            
+            <div class="instructions">
+                <h3>📌 Как использовать:</h3>
+                <ul>
+                    <li>Получите API-ключ на <a href="https://platform.deepseek.com/" target="_blank" style="color: #4fc3f7;">platform.deepseek.com</a></li>
+                    <li>Вставьте ключ в поле выше</li>
+                    <li>Нажмите кнопку и говорите чётко в микрофон</li>
+                    <li>Ответ появится в чате и будет озвучен</li>
+                </ul>
+            </div>
         </div>
         
         <footer>
@@ -223,6 +260,9 @@
         const deepseekApiKeyInput = document.getElementById('deepseekApiKey');
         const voiceSelect = document.getElementById('voiceSelect');
         const autoScrollCheckbox = document.getElementById('autoScroll');
+        const permissionPanel = document.getElementById('permissionPanel');
+        const appContent = document.getElementById('appContent');
+        const requestPermissionBtn = document.getElementById('requestPermissionBtn');
 
         // =====================
         // СОСТОЯНИЕ ПРИЛОЖЕНИЯ
@@ -231,44 +271,137 @@
         let recognition;
         let voices = [];
         let selectedVoice = null;
+        let microphoneAccessGranted = false;
 
         // =====================
         // ИНИЦИАЛИЗАЦИЯ
         // =====================
-        window.onload = function() {
+        window.onload = async function() {
             deepseekApiKeyInput.value = DEFAULT_DEEPSEEK_API_KEY;
+            
+            // Проверка поддержки браузером
             checkBrowserSupport();
+            
+            // Проверка разрешений
+            await checkMicrophonePermission();
+            
+            // Загрузка голосов для синтеза речи
             loadVoices();
             speechSynthesis.onvoiceschanged = loadVoices;
+            
+            // Загрузка сохраненных настроек
             loadSettings();
         };
 
+        // Проверка поддержки браузером
         function checkBrowserSupport() {
             let supportMessage = "Поддерживается: ";
             let allSupported = true;
             
-            if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-                supportMessage += "Распознавание речи, ";
-            } else {
+            if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
                 supportMessage += "НЕТ распознавания речи, ";
                 allSupported = false;
+            } else {
+                supportMessage += "Распознавание речи, ";
             }
             
-            if ('speechSynthesis' in window) {
-                supportMessage += "Синтез речи";
-            } else {
+            if (!('speechSynthesis' in window)) {
                 supportMessage += "НЕТ синтеза речи";
                 allSupported = false;
+            } else {
+                supportMessage += "Синтез речи";
             }
             
-            statusEl.textContent = supportMessage;
-            
             if (!allSupported) {
-                startBtn.disabled = true;
+                statusEl.textContent = supportMessage;
                 addMessageToChat("Ваш браузер не поддерживает все необходимые функции. Рекомендуется использовать Chrome или Edge.", "ai");
             }
         }
 
+        // Проверка разрешения на микрофон
+        async function checkMicrophonePermission() {
+            try {
+                // Проверяем разрешение через Permissions API
+                if (navigator.permissions) {
+                    const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+                    microphoneAccessGranted = permissionStatus.state === 'granted';
+                    
+                    permissionStatus.onchange = () => {
+                        microphoneAccessGranted = permissionStatus.state === 'granted';
+                        updateUI();
+                    };
+                }
+                
+                // Дополнительная проверка через getUserMedia
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    stream.getTracks().forEach(track => track.stop());
+                    microphoneAccessGranted = true;
+                } catch (error) {
+                    microphoneAccessGranted = false;
+                }
+            } catch (e) {
+                console.error("Ошибка проверки разрешений:", e);
+                microphoneAccessGranted = false;
+            }
+            
+            updateUI();
+        }
+
+        // Обновление интерфейса в зависимости от разрешений
+        function updateUI() {
+            if (microphoneAccessGranted) {
+                permissionPanel.style.display = 'none';
+                appContent.style.display = 'block';
+            } else {
+                permissionPanel.style.display = 'block';
+                appContent.style.display = 'none';
+            }
+        }
+
+        // Кнопка запроса разрешения
+        requestPermissionBtn.addEventListener('click', async () => {
+            try {
+                // Запрашиваем доступ к микрофону
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(track => track.stop());
+                microphoneAccessGranted = true;
+                
+                // Обновляем интерфейс
+                updateUI();
+                
+                // Показываем сообщение об успехе
+                statusEl.textContent = "Доступ к микрофону разрешен!";
+                addMessageToChat("Доступ к микрофону разрешен. Теперь вы можете использовать голосового помощника.", "ai");
+                
+            } catch (error) {
+                let errorMessage = "Не удалось получить доступ: ";
+                
+                if (error.name === 'NotAllowedError') {
+                    errorMessage += "Вы запретили доступ. Разрешите доступ в настройках браузера.";
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += "Микрофон не найден.";
+                } else if (error.name === 'SecurityError') {
+                    errorMessage += "Доступ запрещен из соображений безопасности.";
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                permissionPanel.innerHTML += `<div class="status" style="color: #ff5555; margin-top: 15px;">${errorMessage}</div>`;
+                
+                // Добавляем кнопку повторной попытки
+                if (!document.getElementById('retryPermissionBtn')) {
+                    const retryBtn = document.createElement('button');
+                    retryBtn.id = 'retryPermissionBtn';
+                    retryBtn.className = 'retry-btn';
+                    retryBtn.textContent = "Попробовать снова";
+                    retryBtn.onclick = () => location.reload();
+                    permissionPanel.appendChild(retryBtn);
+                }
+            }
+        });
+
+        // Загрузка доступных голосов
         function loadVoices() {
             voices = speechSynthesis.getVoices();
             voiceSelect.innerHTML = '<option value="">-- Выберите голос --</option>';
@@ -304,7 +437,7 @@
         }
 
         // =====================
-        // УПРАВЛЕНИЕ ЗАПИСЬЮ (ИСПРАВЛЕНО ДЛЯ ANDROID)
+        // УПРАВЛЕНИЕ ЗАПИСЬЮ
         // =====================
         startBtn.addEventListener('click', () => {
             if (isRecording) {
@@ -359,12 +492,16 @@
             recognition.onerror = (event) => {
                 let errorMessage = `Ошибка распознавания: ${event.error}`;
                 
-                // Специальная обработка ошибок для Android
                 if (event.error === 'not-allowed') {
                     errorMessage = "Доступ к микрофону заблокирован. Пожалуйста:";
-                    errorMessage += "\n1. Проверьте разрешения браузера";
-                    errorMessage += "\n2. Перезагрузите страницу";
-                    errorMessage += "\n3. Нажмите 'Разрешить' при запросе доступа";
+                    errorMessage += "\n1. Нажмите на значок 🔒 в адресной строке";
+                    errorMessage += "\n2. Выберите 'Настройки сайта'";
+                    errorMessage += "\n3. Установите разрешение микрофона в 'Разрешить'";
+                    errorMessage += "\n4. Перезагрузите страницу";
+                    
+                    // Сбрасываем флаг доступа
+                    microphoneAccessGranted = false;
+                    updateUI();
                 } else if (event.error === 'no-speech') {
                     errorMessage = "Речь не обнаружена. Попробуйте снова.";
                 } else if (event.error === 'audio-capture') {
@@ -373,7 +510,7 @@
                     errorMessage = "Проблемы с сетью. Проверьте интернет-соединение.";
                 }
                 
-                statusEl.textContent = errorMessage;
+                statusEl.innerHTML = errorMessage.replace(/\n/g, '<br>');
                 stopRecording();
                 
                 if (!document.getElementById('retryBtn')) {
@@ -390,11 +527,12 @@
                 stopRecording();
             };
             
-            // Прямой запуск распознавания (без предварительной проверки)
             try {
-                recognition.start();
+                // Запуск с небольшой задержкой для стабильности на мобильных
+                setTimeout(() => {
+                    recognition.start();
+                }, 100);
             } catch (error) {
-                // Специфичная ошибка для Chrome на Android
                 if (error.message.includes('without user gesture')) {
                     statusEl.innerHTML = "Ошибка: Запустите запись снова!<br>Android требует повторного нажатия после разрешения";
                 } else {
